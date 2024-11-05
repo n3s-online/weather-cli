@@ -5,6 +5,16 @@ from datetime import datetime, timedelta
 import argparse
 import pytz
 
+def format_weather_output(dt, temp_k, rain, wind_speed, clouds, timezone, is_current=False):
+    local_tz = pytz.timezone(timezone)
+    dt_local = dt.replace(tzinfo=pytz.utc).astimezone(local_tz)
+    formatted_dt = dt_local.strftime('%-m/%-d %-I%p')
+    temp_f = (temp_k - 273.15) * 9/5 + 32
+    output = f"{formatted_dt:<10} | Temp: {temp_f:>6.2f}F | Rain: {rain:>5}mm | Wind: {wind_speed:>5}m/s | Clouds: {clouds:>3}%"
+    if is_current:
+        return f"\033[92m{output}\033[0m"  # Green color for the first entry
+    return output
+
 def fetch_weather(api_key, lat, lon, hours, timezone):
     # Construct the API URLs
     forecast_url = f"http://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}"
@@ -17,40 +27,34 @@ def fetch_weather(api_key, lat, lon, hours, timezone):
     # Get the current time in UTC
     now_utc = datetime.utcnow()
 
-    # Convert the current time to the specified timezone
-    local_tz = pytz.timezone(timezone)
-    now_local = now_utc.replace(tzinfo=pytz.utc).astimezone(local_tz)
-
     # Format the current weather data
-    current_dt = datetime.utcfromtimestamp(current_data['dt']).replace(tzinfo=pytz.utc).astimezone(local_tz)
-    formatted_current_dt = current_dt.strftime('%-m/%-d %-I%p')
+    current_dt = datetime.utcfromtimestamp(current_data['dt'])
     current_temp_k = current_data['main']['temp']
-    current_temp_f = (current_temp_k - 273.15) * 9/5 + 32
     current_rain = current_data.get('rain', {}).get('1h', 0)
     current_wind_speed = current_data['wind']['speed']
     current_clouds = current_data['clouds']['all']
-    current_output = f"{formatted_current_dt:<10} | Temp: {current_temp_f:>6.2f}F | Rain: {current_rain:>5}mm | Wind: {current_wind_speed:>5}m/s | Clouds: {current_clouds:>3}%"
+    current_output = format_weather_output(current_dt, current_temp_k, current_rain, current_wind_speed, current_clouds, timezone, is_current=True)
 
     # Print the current weather data as the first entry
-    print(f"\033[92m{current_output}\033[0m")  # Green color for the first entry
+    print(current_output)
 
     # Call the forecast API and parse the results
     response = requests.get(forecast_url)
     data = response.json()
 
     # Print the results for the specified number of hours
+    local_tz = pytz.timezone(timezone)
+    now_local = now_utc.replace(tzinfo=pytz.utc).astimezone(local_tz)
     for item in data['list']:
         dt_txt = item['dt_txt']
         dt_utc = datetime.strptime(dt_txt, '%Y-%m-%d %H:%M:%S')
         dt_local = dt_utc.replace(tzinfo=pytz.utc).astimezone(local_tz)
         if dt_local <= now_local + timedelta(hours=hours):
-            formatted_dt = dt_local.strftime('%-m/%-d %-I%p')
             temp_k = item['main']['temp']
-            temp_f = (temp_k - 273.15) * 9/5 + 32
             rain = item.get('rain', {}).get('3h', 0)
             wind_speed = item['wind']['speed']
             clouds = item['clouds']['all']
-            output = f"{formatted_dt:<10} | Temp: {temp_f:>6.2f}F | Rain: {rain:>5}mm | Wind: {wind_speed:>5}m/s | Clouds: {clouds:>3}%"
+            output = format_weather_output(dt_utc, temp_k, rain, wind_speed, clouds, timezone)
             print(output)
 
 if __name__ == "__main__":
