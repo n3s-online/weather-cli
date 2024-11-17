@@ -25,10 +25,10 @@ def fetch_weather(api_key, lat, lon, hours, timezone):
     current_data = current_response.json()
 
     # Get the current time in UTC
-    now_utc = datetime.utcnow()
+    now_utc = datetime.now(pytz.utc)
 
     # Format the current weather data
-    current_dt = datetime.utcfromtimestamp(current_data['dt'])
+    current_dt = datetime.fromtimestamp(current_data['dt'], pytz.utc)
     current_temp_k = current_data['main']['temp']
     current_rain = current_data.get('rain', {}).get('1h', 0)
     current_wind_speed = current_data['wind']['speed']
